@@ -1,0 +1,8 @@
+streamlit==1.29.0
+Pillow==9.5.0
+streamlit-autorefresh==1.0.1
+pandas==2.0.3
+
+
+
+
