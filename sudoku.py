@@ -158,7 +158,7 @@ def BtnCallback2(ptr, btn_no):
   mystate.balance_numbers = mystate.balance_numbers + 1 if btn_no == 0 else mystate.balance_numbers - 1
   if mystate.balance_numbers < 0: mystate.balance_numbers = 0
 
-@st.experimental_dialog("Select a number", width="small")
+@st.dialog("Select a number", width="small")
 def BtnCallback(ptr):
     sc1, sc2, sc3, sc4, sc5 = st.columns(5)
     sc1.button(entry_emoji, key="cb0", on_click=BtnCallback2, args=(ptr, 0))
@@ -176,7 +176,7 @@ def CheckBoxSelectUnselect(what_to_do):
   wtd_val = False if what_to_do == 'clear' else True
   for i in range(1,10): mystate[f"cb{i}"] = wtd_val
 
-@st.experimental_fragment
+@st.fragment
 def ShowScratchpad():
   with st.popover("Scratchpad", use_container_width=True):
     st.markdown("✍️ Number Scratchpad:")
@@ -191,7 +191,7 @@ def ShowScratchpad():
     sc1.button("Select All", key="clrbtn", on_click=CheckBoxSelectUnselect, args=('select',), use_container_width=True)
     sc2.button("Clear All", key="slbtn", on_click=CheckBoxSelectUnselect, args=('clear',), use_container_width=True)
   
-@st.experimental_fragment
+@st.fragment
 def DisplayGame():
   st.markdown(" <style> div[class^='block-container'] { padding-top: 3rem; } </style> ", True)
   st.caption("Refresh screen for new game...")
