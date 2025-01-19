@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit import session_state as ss
 import random
 import base64
 import time as tm
@@ -14,10 +15,15 @@ entry_emoji = "❔"
 dlvllst = {"Easy": random.randint(45, 60), "Medium": random.randint(35, 45), "Difficult": random.randint(30, 35)}
 vline = f"<hr style='margin-top: 0; margin-bottom: 0; size: 1px; border: 1px dashed; color: #2E7D32; '>"
 vrules = """
-              <h3>Rules:</h3>
+              <h4 style='margin-top: 0px; margin-bottom: 0px;'>Rules:</h4>
               1: Each row must contain the numbers from 1 to 9, without duplicates.<br>
               2: Each column must contain the numbers from 1 to 9, without duplicates.<br>
-              3: The digits can only occur once per 3x3 block.<br>
+              3: The digits can only occur once per 3x3 block, without duplicates.<br><br>
+
+              <h4 style='margin-top: 0px; margin-bottom: 0px;'>Other Information:</h4>
+              1: To change a number, choose from its dropdown.<br>
+              2: You will be intimated once the game is solved.<br>
+              3: The Scratchpad will help you to eliminate numbers from a row / column / 3x3 block.<br>
               """
 jumble_options = [
   "hbd 1-2",
@@ -46,19 +52,34 @@ jumble_options = [
   "col 8-9",
 ]
 
+disabled_number_code = """
+                          <span style='
+                            width: 50px;
+                            height: 38px;
+                            color: #757575;
+                            display: flex;
+                            background-color: #f6f6f6;
+                            justify-content: center;
+                            align-items: center;
+                            border: 2px solid black;
+                            margin: 1px;
+                            font-size: 16pt;
+                            border-radius: 7px; '
+                          >
+                      """
+
 #sctn session variables
-mystate = st.session_state
-if "changed_grid_indices" not in mystate: mystate.changed_grid_indices = {}
-if "balance_numbers" not in mystate: mystate.balance_numbers = 0
-if "grid_indices" not in mystate: mystate.grid_indices = [int(x) for x in sample_gm]
-if "starter_func_run_once" not in mystate: mystate.starter_func_run_once = False
+if "changed_grid_indices" not in ss: ss.changed_grid_indices = {}
+if "balance_numbers" not in ss: ss.balance_numbers = 0
+if "grid_numbers" not in ss: ss.grid_numbers = [int(x) for x in sample_gm]
+if "starter_func_run_once" not in ss: ss.starter_func_run_once = False
 
 def ColSwap(vSrc, vTgt):
   src_st = (vSrc - 1)
   tgt_st = (vTgt - 1)
 
   for x in range(9):
-    mystate.grid_indices[src_st], mystate.grid_indices[tgt_st] = mystate.grid_indices[tgt_st], mystate.grid_indices[src_st]
+    ss.grid_numbers[src_st], ss.grid_numbers[tgt_st] = ss.grid_numbers[tgt_st], ss.grid_numbers[src_st]
     src_st = src_st + 9
     tgt_st = tgt_st + 9
 
@@ -69,7 +90,7 @@ def RowSwap(vSrc, vTgt):
   tgt_nd = (vTgt * 9)
   tgt_st = (tgt_nd - 9)
 
-  mystate.grid_indices[src_st:src_nd], mystate.grid_indices[tgt_st:tgt_nd] = mystate.grid_indices[tgt_st:tgt_nd], mystate.grid_indices[src_st:src_nd]
+  ss.grid_numbers[src_st:src_nd], ss.grid_numbers[tgt_st:tgt_nd] = ss.grid_numbers[tgt_st:tgt_nd], ss.grid_numbers[src_st:src_nd]
 
 def BandSwap(vType, vOrientation, vSrcTgt):
   if vType == "band":
@@ -105,7 +126,7 @@ def BandSwap(vType, vOrientation, vSrcTgt):
         ColSwap(5, 8)   # vSrc, vTgt
         ColSwap(6, 9)   # vSrc, vTgt
 
-def ShowResponseTable():
+def ShowSolvedSudokuTable():
   tblhdr = """
             <style>
               table { border-collapse: collapse; font-family: Calibri, sans-serif; }
@@ -125,9 +146,9 @@ def ShowResponseTable():
   """
 
   tbdy = "<tr>"
-  for i in range(len(mystate.grid_indices)):
-    cell_color = "" if (i+1) in mystate.given_grid_indices else "background-color:#F8BBD0; "
-    tbdy = tbdy + f"<td style='{cell_color}'>" + str(mystate.grid_indices[i]) + "</td>"
+  for i in range(len(ss.grid_numbers)):
+    cell_color = "" if (i+1) in ss.given_grid_indices else "background-color:#F8BBD0; "
+    tbdy = tbdy + f"<td style='{cell_color}'>" + str(ss.grid_numbers[i]) + "</td>"
 
     if ((i+1) / 9) == int((i+1) / 9) and i != 0: tbdy = tbdy + "</tr><tr>"
 
@@ -141,7 +162,7 @@ def GenerateGivenList(dlvl):
     rndmno = random.randint(start, end)
     if rndmno not in random_numbers: random_numbers.append(rndmno)
   
-  mystate.balance_numbers = 81 - dlvllst[dlvl]
+  ss.balance_numbers = 81 - dlvllst[dlvl]
 
   return random_numbers
 
@@ -152,31 +173,15 @@ def ReadPictureFile(wch_fl):
 
   except: return ""
 
-def BtnCallback2(ptr, btn_no):
-  ptr = ptr + 1
-  mystate.changed_grid_indices[ptr] = btn_no
-  mystate.balance_numbers = mystate.balance_numbers + 1 if btn_no == 0 else mystate.balance_numbers - 1
-  if mystate.balance_numbers < 0: mystate.balance_numbers = 0
-
-@st.experimental_dialog("Select a number", width="small")
-def BtnCallback(ptr):
-    sc1, sc2, sc3, sc4, sc5 = st.columns(5)
-    sc1.button(entry_emoji, key="cb0", on_click=BtnCallback2, args=(ptr, 0))
-    sc2.button('1️⃣', key="cb1", on_click=BtnCallback2, args=(ptr, 1))
-    sc3.button('2️⃣', key="cb2", on_click=BtnCallback2, args=(ptr, 2))
-    sc4.button('3️⃣', key="cb3", on_click=BtnCallback2, args=(ptr, 3))
-    sc5.button('4️⃣', key="cb4", on_click=BtnCallback2, args=(ptr, 4))
-    sc1.button('5️⃣', key="cb5", on_click=BtnCallback2, args=(ptr, 5))
-    sc2.button('6️⃣', key="cb6", on_click=BtnCallback2, args=(ptr, 6))
-    sc3.button('7️⃣', key="cb7", on_click=BtnCallback2, args=(ptr, 7))
-    sc4.button('8️⃣', key="cb8", on_click=BtnCallback2, args=(ptr, 8))
-    sc5.button('9️⃣', key="cb9", on_click=BtnCallback2, args=(ptr, 9))
-
 def CheckBoxSelectUnselect(what_to_do): 
   wtd_val = False if what_to_do == 'clear' else True
-  for i in range(1,10): mystate[f"cb{i}"] = wtd_val
+  for i in range(1,10): ss[f"cb{i}"] = wtd_val
 
-@st.experimental_fragment
+def CheckIfSolved():
+  all_solved = []
+  for k in ss.changed_grid_indices.keys(): all_solved.append(False if ss.changed_grid_indices[k] != ss.grid_numbers[k-1] else True)
+
+@st.fragment
 def ShowScratchpad():
   with st.popover("Scratchpad", use_container_width=True):
     st.markdown("✍️ Number Scratchpad:")
@@ -190,33 +195,34 @@ def ShowScratchpad():
     sc1, sc2 = st.columns(2)
     sc1.button("Select All", key="clrbtn", on_click=CheckBoxSelectUnselect, args=('select',), use_container_width=True)
     sc2.button("Clear All", key="slbtn", on_click=CheckBoxSelectUnselect, args=('clear',), use_container_width=True)
-  
-@st.experimental_fragment
+
+def PopOverChanged(ptr): ss.changed_grid_indices[ptr] = ss[f"B{ptr}"]
+
 def DisplayGame():
-  st.markdown(" <style> div[class^='block-container'] { padding-top: 3rem; } </style> ", True)
-  st.caption("Refresh screen for new game...")
-  st.markdown(vline, True)
-  vdsbld = False
+  # st.html(" <style> .st-emotion-cache-ocsh0s { background-color: #F8BBD0; color: black } </style> ")
+
   ptr = 0
   for r in range(1, 10):
     globals()['cols' + str(r)] = st.columns((3,3,3,1,3,3,3,1,3,3,3))
     for c in range(1, 12):
-      if c == 4 or c == 8: 
-        globals()['cols' + str(r)][c-1].markdown("|", True)
+      if c == 4 or c == 8: globals()['cols' + str(r)][c-1].markdown("|", True)
       
       else:
-        if (ptr + 1) in mystate.given_grid_indices:
-          vdsbld = True
-          vemoji = emoji_lst[mystate.grid_indices[ptr]]
+        if (ptr + 1) in ss.given_grid_indices:
+          globals()['cols' + str(r)][c-1].html(disabled_number_code + f'{ss.grid_numbers[ptr]}</span>')
 
         else:
-          vdsbld = False
-          vemoji = emoji_lst[mystate.changed_grid_indices[ptr+1]] if (ptr + 1) in mystate.changed_grid_indices.keys() else entry_emoji
-
-        globals()['cols' + str(r)][c-1].button(vemoji, key=f"B{ptr}", on_click=BtnCallback, args=(ptr,), disabled=vdsbld)
+          with globals()['cols' + str(r)][c-1].popover(str(ss.changed_grid_indices[ptr+1]), use_container_width=False): 
+            st.segmented_control("Choose a number", 
+                                  options=[0,1,2,3,4,5,6,7,8,9], 
+                                  selection_mode='single', 
+                                  key=f"B{ptr+1}",
+                                  on_change=PopOverChanged, 
+                                  args=(ptr+1,))
+            
         ptr = ptr + 1
     
-    if (r / 3) == int(r / 3): st.markdown(vline, True)
+    if (r / 3) == int(r / 3) and r < 9: st.markdown(vline, True)
 
 def StarterFunctionRunOnce():
   active_option = random.choice(jumble_options)
@@ -227,34 +233,43 @@ def StarterFunctionRunOnce():
   if jumble_cmd == "hbd": BandSwap("band", "horizontal", f"{jumble_st}-{jumble_nd}")  # vType, vOrientation, vSrcTgt
   if jumble_cmd == "vbd": BandSwap("band", "vertical",   f"{jumble_st}-{jumble_nd}")  # vType, vOrientation, vSrcTgt
 
-  mystate.starter_func_run_once = True
-
-def Main():
-  sudoku_icon = f"""<img src="data:gif;base64,{ReadPictureFile('sudoku_sidebar_icon.png')}" width="65" height="55">"""
-
-  if mystate.starter_func_run_once == False: StarterFunctionRunOnce()
 
   dlvl = random.choice([x for x in dlvllst.keys()])
   # dlvl = "Easy" #WARN TBD
-  if "given_grid_indices" not in mystate: mystate.given_grid_indices = GenerateGivenList(dlvl)
+  if "given_grid_indices" not in ss: ss.given_grid_indices = GenerateGivenList(dlvl)
+
+  ss.given_grid_indices.sort()
+
+  for x in range(1,82): 
+    if x not in ss.given_grid_indices: ss.changed_grid_indices[x] = '0'
+
+  ss.starter_func_run_once = True
+
+  # st.html(" <style> .st-emotion-cache-ocsh0s { background-color: #F8BBD0; color: black } </style> ")
+
+def Main():
+  sudoku_icon = f"""<img src="data:gif;base64,{ReadPictureFile('sudoku_sidebar_icon.png')}" width="65" height="50">"""
+
+  if ss.starter_func_run_once == False: StarterFunctionRunOnce()
   
   main_container = st.empty()
 
-  with main_container.container():
+  with main_container.container(border=True):
     try: DisplayGame()
     except: st.warning("✋ Invalid move. Please refresh screen for new game.")
 
   with st.sidebar:
     sc1, sc2 = st.columns((1.5,4))
     sc1.markdown(sudoku_icon, unsafe_allow_html=True)
-    sc2.html("<h1 style='font-size:3em; margin-top:0px; padding-top:0px'>Sudoku:</h1>")
+    sc2.html("<h1 style='font-size:2.1em; margin-top:0px; margin-bottom:0px; padding-top:0px;'>Sudoku:</h1>")
+    st.html("<span style='font-size: 14px; color: blue; margin-top:0px; margin-bottom:0px; padding-top:0px; '>↻ Refresh screen / page for new game...</span>")
     st.markdown(vline, True)
 
-    st.html(vrules)
-    st.markdown(vline, True)
+    with st.expander(" How to play:", expanded=False, icon=':material/psychology_alt:'): st.html(vrules)
 
-    ShowResponseTable()
     ShowScratchpad()
+    ShowSolvedSudokuTable()
+    CheckIfSolved()
 
     st.markdown(vline, True)
 
@@ -262,10 +277,10 @@ def Main():
     st.markdown(author_dtl, unsafe_allow_html=True)
 
   all_solved = []
-  for k, v in mystate.changed_grid_indices.items(): all_solved.append(False if v != mystate.grid_indices[k-1] else True)
-  if all(all_solved) and len(all_solved) > 0 and len(all_solved) == (81 - len(mystate.given_grid_indices)):
+  for k, v in ss.changed_grid_indices.items(): all_solved.append(False if v != ss.grid_numbers[k-1] else True)
+  if all(all_solved) and len(all_solved) > 0 and len(all_solved) == (81 - len(ss.given_grid_indices)):
     st.balloons()
-    tm.sleep(1)
+    tm.sleep(2)
     main_container.markdown(f"""<img src="data:jpg;base64,{ReadPictureFile('won_pix.jpg')}" width='600' height='500' >""", unsafe_allow_html=True)
 
 def LandingPage():
@@ -283,9 +298,9 @@ def LandingPage():
     st.markdown(img_code, unsafe_allow_html=True)
 
     tm.sleep(2)
-    mystate.runpage = Main
+    ss.runpage = Main
     st.rerun()
 
-if 'runpage' not in mystate: mystate.runpage = LandingPage
-# if 'runpage' not in mystate: mystate.runpage = Main
-mystate.runpage()
+if 'runpage' not in ss: ss.runpage = LandingPage
+# if 'runpage' not in ss: ss.runpage = Main
+ss.runpage()
